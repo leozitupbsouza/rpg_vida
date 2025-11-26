@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Level Up - RPG Edition (Safe Ascension)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        shimmer: {
+                            'from': { backgroundPosition: '0 0' },
+                            'to': { backgroundPosition: '-200% 0' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .dark .glass-card { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }
+        .checkbox-bounce { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .checkbox-bounce:active { transform: scale(0.85); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-enter { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .bg-gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
+        .bg-combo-gradient { background: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-[#0b1120] dark:text-slate-100 transition-colors duration-300">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- DADOS ---
+        const ROUTINE_DATA = [
+            { id: 'banho_manha', xp: 15, time: 'Ao acordar', period: 'manha', title: 'Banho Matinal', type: 'hygiene', description: 'Higiene corporal completa.', consequence: 'Acúmulo de suor noturno e oleosidade.' },
+            { id: 'shampoo_pielus', xp: 10, time: 'No banho', period: 'manha', title: 'Shampoo Pielus DI', type: 'skincare', description: 'Lavar couro cabeludo diariamente.', consequence: 'Piora da dermatite seborreica e caspa.' },
+            { id: 'dermotivin_m', xp: 10, time: 'Pós-banho', period: 'manha', title: 'Sabonete Facial Dermotivin', type: 'skincare', description: 'Lavar o rosto suavemente.', consequence: 'Obstrução dos poros e excesso de oleosidade.' },
+            { id: 'sensibio_m', xp: 15, time: 'Pós-lavagem', period: 'manha', title: 'Sensibio DS+', type: 'skincare', description: 'Aplicar na face antes do protetor.', consequence: 'Vermelhidão e descamação da pele.' },
+            { id: 'fluoxetina', xp: 20, time: 'Junto ao Café', period: 'manha', title: 'Fluoxetina 1cp', type: 'med', description: 'Tomar 1 comprimido.', consequence: 'Instabilidade de humor, ansiedade e sintomas de abstinência.' },
+            { id: 'cafe_manha', xp: 20, time: 'Manhã', period: 'manha', title: 'Café da Manhã', type: 'meal', description: 'Refeição nutritiva.', consequence: 'Falta de energia, metabolismo lento e risco de gastrite.' },
+            { id: 'minoxidil', xp: 15, time: 'Manhã', period: 'manha', title: 'Minoxidil (Cápsula)', type: 'med', description: 'Tomar 1 cápsula.', consequence: 'Interrupção do crescimento capilar e perda dos resultados.' },
+            { id: 'creatina', xp: 15, time: 'Manhã', period: 'manha', title: 'Creatina', type: 'med', description: 'Tomar a dose diária.', consequence: 'Perda de desempenho muscular e recuperação lenta.' },
+            { id: 'eucerin_m', xp: 15, time: 'Antes de sair', period: 'manha', title: 'Prot. Solar Eucerin 60', type: 'skincare', description: 'Aplicar em toda a face.', consequence: 'Manchas, risco de câncer e envelhecimento precoce.' },
+            { id: 'candicort_m', xp: 10, time: 'Manhã', period: 'manha', title: 'Candicort', type: 'candicort', description: 'Aplicar nas regiões irritadas (se houver).', consequence: 'Persistência da inflamação ou coceira.' },
+            { id: 'almoco', xp: 20, time: '12:00 - 13:00', period: 'tarde', title: 'Almoço', type: 'meal', description: 'Refeição principal.', consequence: 'Fraqueza, perda de massa magra e desregulação hormonal.' },
+            { id: 'eucerin_t', xp: 15, time: 'Após Almoço', period: 'tarde', title: 'Prot. Solar Eucerin 60', type: 'skincare', description: 'Reaplicar após o almoço (prescrito).', consequence: 'Proteção reduzida à tarde, aumento da oleosidade rebote.' },
+            { id: 'workout_task', xp: 50, time: 'Tarde/Noite', period: 'tarde', title: 'Ir à Academia', type: 'workout', description: 'Executar o treino programado do dia.', consequence: 'Perda de consistência e atraso nos objetivos físicos.' },
+            { id: 'lanche', xp: 15, time: '16:00', period: 'tarde', title: 'Lanche da Tarde', type: 'meal', description: 'Lanche leve.', consequence: 'Fome excessiva no jantar e picos de glicemia.' },
+            { id: 'jantar', xp: 20, time: '19:00 - 20:00', period: 'noite', title: 'Jantar', type: 'meal', description: 'Refeição noturna.', consequence: 'Dificuldade para dormir (se pular) ou metabolismo lento.' },
+            { id: 'banho_noite', xp: 15, time: 'Noite', period: 'noite', title: 'Banho Noturno', type: 'hygiene', description: 'Higiene antes de dormir.', consequence: 'Dormir com impurezas do dia na pele.' },
+            { id: 'eucerin_gel_n', xp: 15, time: 'Pós-banho', period: 'noite', title: 'Gel Eucerin Dermo Pure', type: 'skincare', description: 'Limpeza profunda (Substitui o Dermotivin à noite).', consequence: 'Poros obstruídos e menor renovação celular sem o ácido salicílico.' },
+            { id: 'sensibio_n', xp: 15, time: 'Antes de dormir', period: 'noite', title: 'Sensibio DS+', type: 'skincare', description: 'Aplicar na face.', consequence: 'Falta de tratamento durante o pico de renovação celular (sono).' },
+            { id: 'candicort_n', xp: 10, time: 'Noite', period: 'noite', title: 'Candicort', type: 'candicort', description: 'Nas áreas irritadas (2x ao dia).', consequence: 'Inflamação não tratada.' },
+            { id: 'melatonina', xp: 20, time: '30min antes de dormir', period: 'noite', title: 'Melatonina', type: 'med', description: 'Higiene do sono.', consequence: 'Dificuldade para iniciar o sono e descanso de má qualidade.' }
+        ];
+
+        const MUSCLE_GROUPS = [
+            { id: 'peito', label: 'Peito' }, { id: 'triceps', label: 'Tríceps' }, { id: 'costas', label: 'Costas' },
+            { id: 'biceps', label: 'Bíceps' }, { id: 'ombros', label: 'Ombros' }, { id: 'trapezios', label: 'Trapézios' },
+            { id: 'perna', label: 'Quadríceps' }, { id: 'posterior', label: 'Posterior' }, { id: 'panturrilha', label: 'Panturrilha' },
+            { id: 'abdominal', label: 'Abdominal' }
+        ];
+
+        const WORKOUT_PRESETS = [
+            { name: 'Treino A', muscles: ['peito', 'triceps'], label: 'Peito + Tríceps' },
+            { name: 'Treino B', muscles: ['costas', 'biceps', 'ombros', 'trapezios'], label: 'Costas + Bíceps + Ombros' },
+            { name: 'Treino C', muscles: ['perna', 'panturrilha', 'abdominal'], label: 'Perna Completa' }
+        ];
+
+        // --- SISTEMA DE CONQUISTAS (80 ITENS) ---
+        const generateAchievements = () => {
+            const list = [];
+            
+            // 1-20: Níveis
+            for (let i = 1; i <= 20; i++) {
+                list.push({ id: `lvl_${i*5}`, title: `Nível ${i*5}`, description: `Alcance o nível ${i*5} de personagem.`, xp: 50 * i, category: 'level', threshold: i*5 });
+            }
+            
+            // 21-30: Dias Logados (Consistência)
+            const streaks = [3, 7, 14, 21, 30, 60, 90, 120, 180, 365];
+            streaks.forEach((d, idx) => list.push({ id: `streak_${d}`, title: `Foco: ${d} Dias`, description: `Mantenha a rotina por ${d} dias.`, xp: 100 * (idx+1), category: 'streak', threshold: d }));
+
+            // 31-40: Tarefas Completas (Total)
+            const tasks = [10, 50, 100, 250, 500, 1000, 2500, 5000, 7500, 10000];
+            tasks.forEach((t, idx) => list.push({ id: `task_${t}`, title: `Executor ${t}`, description: `Complete um total de ${t} tarefas.`, xp: 20 * (idx+1), category: 'task', threshold: t }));
+
+            // 41-50: Treinos Realizados
+            const workouts = [1, 5, 10, 25, 50, 100, 200, 300, 400, 500];
+            workouts.forEach((w, idx) => list.push({ id: `gym_${w}`, title: `Atleta ${w}`, description: `Realize ${w} treinos.`, xp: 100 * (idx+1), category: 'gym', threshold: w }));
+
+            // 51-60: Meta de Água
+            const waterDays = [1, 5, 10, 25, 50, 100, 200, 300, 400, 500];
+            waterDays.forEach((w, idx) => list.push({ id: `water_${w}`, title: `Hidratado ${w}`, description: `Bata a meta de água por ${w} dias.`, xp: 50 * (idx+1), category: 'water', threshold: w }));
+
+            // 61-70: Cardio Master
+            const cardioKm = [5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000]; // Km totais
+            cardioKm.forEach((k, idx) => list.push({ id: `cardio_${k}`, title: `Corredor ${k}km`, description: `Acumule ${k}km de cardio.`, xp: 75 * (idx+1), category: 'cardio', threshold: k }));
+
+            // 71-80: As LENDÁRIAS (Muito difíceis)
+            const legendaries = [
+                { id: 'leg_1', title: 'O Despertar', description: 'Complete TODAS as tarefas matinais por 30 dias seguidos.', xp: 5000, category: 'special' },
+                { id: 'leg_2', title: 'Senhor do Tempo', description: 'Complete 100% da rotina diária 100 vezes.', xp: 10000, category: 'special' },
+                { id: 'leg_3', title: 'Iron Man', description: 'Faça 365 treinos em um ano.', xp: 15000, category: 'special' },
+                { id: 'leg_4', title: 'Poseidon', description: 'Beba 3.5L de água por 180 dias.', xp: 10000, category: 'special' },
+                { id: 'leg_5', title: 'Flash', description: 'Acumule 1000km de corrida.', xp: 12000, category: 'special' },
+                { id: 'leg_6', title: 'Fênix', description: 'Realize 10 Ascensões.', xp: 25000, category: 'special' },
+                { id: 'leg_7', title: 'Perfeição Divina', description: 'Não falhe nenhuma tarefa por 60 dias.', xp: 20000, category: 'special' },
+                { id: 'leg_8', title: 'Titã', description: 'Alcance o nível 200.', xp: 50000, category: 'special' },
+                { id: 'leg_9', title: 'O Iluminado', description: 'Consiga 1.000.000 de XP Total.', xp: 100000, category: 'special' },
+                { id: 'leg_10', title: 'DEUS DO OLIMPO', description: 'Complete TODAS as outras conquistas.', xp: 500000, category: 'special' }
+            ];
+            list.push(...legendaries);
+
+            return list;
+        };
+        const ACHIEVEMENT_DATA = generateAchievements();
+
+        // --- COMPONENTES AUXILIARES ---
+        const Icon = ({ name, className }) => {
+            React.useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className}></i>;
+        };
+
+        const ModalWrapper = ({ children, onClose }) => (
+            <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[100] animate-enter">
+                <div className="absolute inset-0" onClick={onClose}></div>
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl relative border border-white/20 overflow-hidden max-h-[85vh] overflow-y-auto z-10 no-scrollbar">
+                    {children}
+                </div>
+            </div>
+        );
+
+        // --- COMPONENTE MAPA CORPORAL ---
+        const BodyMap = ({ highlightedMuscles, onMuscleClick }) => {
+            const isActive = (id) => highlightedMuscles.includes(id);
+            const getFill = (id) => isActive(id) ? "#f43f5e" : "currentColor"; 
+            
+            const MusclePath = ({ id, d }) => (
+                <path d={d} fill={getFill(id)} stroke="transparent" className={`transition-all duration-300 cursor-pointer hover:brightness-110 ${isActive(id) ? 'opacity-100 filter drop-shadow-md' : 'opacity-20 hover:opacity-40 text-slate-400 dark:text-slate-600'}`} onClick={() => onMuscleClick && onMuscleClick(id)} />
+            );
+
+            return (
+                <div className="flex justify-center gap-6 h-[400px] w-full py-4 select-none">
+                    <svg viewBox="0 0 200 450" className="h-full drop-shadow-xl"><g transform="translate(10, 0)">
+                        <path d="M90 20 Q90 5 100 5 Q110 5 110 20 Q110 40 100 40 Q90 40 90 20" fill="currentColor" className="text-slate-300 dark:text-slate-700" />
+                        <MusclePath id="ombros" d="M65 55 Q50 60 50 80 L60 100 Q80 70 90 55 Z" /><MusclePath id="ombros" d="M135 55 Q150 60 150 80 L140 100 Q120 70 110 55 Z" />
+                        <MusclePath id="peito" d="M90 55 L65 55 Q65 90 85 100 L95 100 L95 55 Z" /><MusclePath id="peito" d="M110 55 L135 55 Q135 90 115 100 L105 100 L105 55 Z" />
+                        <MusclePath id="biceps" d="M50 80 L45 120 Q60 130 65 110 L60 100 Z" /><MusclePath id="biceps" d="M150 80 L155 120 Q140 130 135 110 L140 100 Z" />
+                        <MusclePath id="abdominal" d="M85 100 L115 100 L110 160 L90 160 Z" /><MusclePath id="abdominal" d="M90 160 L110 160 L105 190 L95 190 Z" />
+                        <MusclePath id="perna" d="M90 190 L60 190 Q50 250 65 290 L95 290 L95 240 Z" /><MusclePath id="perna" d="M110 190 L140 190 Q150 250 135 290 L105 290 L105 240 Z" />
+                        <MusclePath id="panturrilha" d="M65 300 L60 360 L80 360 L90 310 Z" /><MusclePath id="panturrilha" d="M135 300 L140 360 L120 360 L110 310 Z" />
+                    </g></svg>
+                    <svg viewBox="0 0 200 450" className="h-full drop-shadow-xl"><g transform="translate(-10, 0)">
+                        <path d="M90 20 Q90 5 100 5 Q110 5 110 20 Q110 40 100 40 Q90 40 90 20" fill="currentColor" className="text-slate-300 dark:text-slate-700" />
+                        <MusclePath id="trapezios" d="M90 40 L70 50 L95 80 L105 80 L130 50 L110 40 L100 40 Z" />
+                        <MusclePath id="ombros" d="M60 55 L50 70 L60 90 L75 60 Z" /><MusclePath id="ombros" d="M140 55 L150 70 L140 90 L125 60 Z" />
+                        <MusclePath id="costas" d="M75 60 L60 100 L95 150 L100 80 Z" /><MusclePath id="costas" d="M125 60 L140 100 L105 150 L100 80 Z" />
+                        <MusclePath id="triceps" d="M50 70 L45 110 L60 100 L60 90 Z" /><MusclePath id="triceps" d="M150 70 L155 110 L140 100 L140 90 Z" />
+                        <MusclePath id="costas" d="M95 150 L105 150 L105 180 L95 180 Z" />
+                        <MusclePath id="perna" d="M60 190 L95 190 L95 230 L55 230 Z" /><MusclePath id="perna" d="M140 190 L105 190 L105 230 L145 230 Z" />
+                        <MusclePath id="posterior" d="M55 235 L60 290 L90 290 L95 235 Z" /><MusclePath id="posterior" d="M145 235 L140 290 L110 290 L105 235 Z" />
+                        <MusclePath id="panturrilha" d="M60 300 L65 350 L85 330 L90 300 Z" /><MusclePath id="panturrilha" d="M140 300 L135 350 L115 330 L110 300 Z" />
+                    </g></svg>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [history, setHistory] = useState({});
+            const [gymHistory, setGymHistory] = useState({});
+            const [waterHistory, setWaterHistory] = useState({});
+            const [userSettings, setUserSettings] = useState({ waterGoal: 3000, xpMultiplier: 1.0, ascensionCount: 0, xpOffset: 0, unlockedAchievements: [] });
+            
+            const [activeTab, setActiveTab] = useState('routine'); 
+            const [candicortStart, setCandicortStart] = useState(null);
+            const [selectedItem, setSelectedItem] = useState(null); 
+            const [suggestedItem, setSuggestedItem] = useState(null); 
+            const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+            const [modalMuscle, setModalMuscle] = useState(null); 
+            const [darkMode, setDarkMode] = useState(false);
+            const [waterModalOpen, setWaterModalOpen] = useState(false);
+            const [ascensionModalOpen, setAscensionModalOpen] = useState(false);
+            const [achievementsModalOpen, setAchievementsModalOpen] = useState(false);
+            const fileInputRef = useRef(null);
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            // --- PERSISTÊNCIA ---
+            useEffect(() => {
+                const savedHistory = localStorage.getItem('leonardo_routine_history');
+                const savedGym = localStorage.getItem('leonardo_gym_history_v2');
+                const savedWater = localStorage.getItem('leonardo_water_history');
+                const savedSettings = localStorage.getItem('leonardo_settings');
+                const savedCandicort = localStorage.getItem('leonardo_candicort_start');
+                const savedTheme = localStorage.getItem('theme');
+
+                if (savedHistory) setHistory(JSON.parse(savedHistory));
+                if (savedGym) setGymHistory(JSON.parse(savedGym));
+                if (savedWater) setWaterHistory(JSON.parse(savedWater));
+                if (savedSettings) setUserSettings(prev => ({...prev, ...JSON.parse(savedSettings)}));
+
+                if (!savedCandicort) {
+                    localStorage.setItem('leonardo_candicort_start', todayStr);
+                    setCandicortStart(todayStr);
+                } else setCandicortStart(savedCandicort);
+
+                if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    setDarkMode(true);
+                }
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('leonardo_routine_history', JSON.stringify(history));
+                localStorage.setItem('leonardo_gym_history_v2', JSON.stringify(gymHistory));
+                localStorage.setItem('leonardo_water_history', JSON.stringify(waterHistory));
+                localStorage.setItem('leonardo_settings', JSON.stringify(userSettings));
+                localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+                if (darkMode) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }, [history, gymHistory, waterHistory, userSettings, darkMode]);
+
+            // --- LÓGICA DE NEGÓCIO ---
+            const toggleRoutineItem = (id) => {
+                setHistory(prev => {
+                    const todayData = prev[todayStr] || { completed: [] };
+                    const isCompleted = todayData.completed.includes(id);
+                    let newCompleted = isCompleted ? todayData.completed.filter(itemId => itemId !== id) : [...todayData.completed, id];
+                    if (newCompleted.length === ROUTINE_DATA.length && window.confetti) {
+                        window.confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                    }
+                    return { ...prev, [todayStr]: { ...todayData, completed: newCompleted } };
+                });
+            };
+
+            const addExercise = (exerciseObj) => {
+                setGymHistory(prev => {
+                    const dayData = prev[selectedDate] || { exercises: [], cardioKm: 0 };
+                    return { ...prev, [selectedDate]: { ...dayData, exercises: [...(dayData.exercises || []), exerciseObj] } };
+                });
+            };
+
+            const updateCardio = (km) => {
+                 setGymHistory(prev => {
+                    const dayData = prev[selectedDate] || { exercises: [], cardioKm: 0 };
+                    return { ...prev, [selectedDate]: { ...dayData, cardioKm: parseFloat(km) } };
+                });
+            };
+
+            const removeExercise = (exerciseId) => {
+                setGymHistory(prev => {
+                    const dayData = prev[selectedDate];
+                    if(!dayData) return prev;
+                    return { ...prev, [selectedDate]: { ...dayData, exercises: dayData.exercises.filter(ex => ex.id !== exerciseId) } };
+                });
+            };
+
+            const applyPreset = (preset, date) => {
+                const newExercises = preset.muscles.map((mId, index) => ({
+                    id: Date.now() + index, muscleId: mId, exercise: `Treino de ${MUSCLE_GROUPS.find(m => m.id === mId)?.label}`, weight: 0, series: 3, reps: 10
+                }));
+                setGymHistory(prev => {
+                    const dayData = prev[date] || { exercises: [], cardioKm: 0 };
+                    return { ...prev, [date]: { ...dayData, exercises: [...(dayData.exercises || []), ...newExercises] } };
+                });
+            };
+
+            // --- RPG: SISTEMA DE ASCENSÃO & XP COM COMBO DIÁRIO ---
+            const gamification = useMemo(() => {
+                let rawTotalXP = 0;
+                
+                // Agrupando todas as datas presentes
+                const allDates = new Set([...Object.keys(history), ...Object.keys(gymHistory), ...Object.keys(waterHistory)]);
+
+                allDates.forEach(date => {
+                    let dailyXP = 0;
+                    
+                    // XP de Rotina
+                    const routineDay = history[date];
+                    if (routineDay && routineDay.completed) {
+                        routineDay.completed.forEach(taskId => {
+                            const task = ROUTINE_DATA.find(t => t.id === taskId);
+                            if (task) dailyXP += (task.xp || 10);
+                        });
+                    }
+
+                    // XP de Gym
+                    const gymDay = gymHistory[date];
+                    if (gymDay && gymDay.exercises) {
+                        dailyXP += (gymDay.exercises.length * 10);
+                    }
+                    // XP Cardio (10 XP por KM)
+                    if (gymDay && gymDay.cardioKm) {
+                        dailyXP += (gymDay.cardioKm * 10);
+                    }
+
+                    // *** LÓGICA DO COMBO (3Km + 3.5L Água) ***
+                    const waterAmount = waterHistory[date] || 0;
+                    const cardioAmount = gymDay ? (gymDay.cardioKm || 0) : 0;
+                    
+                    let dailyMultiplier = 1.0;
+                    if (waterAmount >= 3500 && cardioAmount >= 3) {
+                        dailyMultiplier = 1.5;
+                    }
+
+                    // Soma ao total com o multiplicador diário
+                    rawTotalXP += (dailyXP * dailyMultiplier);
+                });
+
+                // XP de Conquistas (Independente de reset, mas vamos somar ao raw)
+                const unlockedIds = userSettings.unlockedAchievements || [];
+                unlockedIds.forEach(id => {
+                    const ach = ACHIEVEMENT_DATA.find(a => a.id === id);
+                    if (ach) rawTotalXP += ach.xp;
+                });
+                
+                const offset = userSettings.xpOffset || 0;
+                const effectiveXP = Math.max(0, rawTotalXP - offset);
+                
+                const finalXP = Math.floor(effectiveXP * userSettings.xpMultiplier);
+
+                let level = 1;
+                let xpForNext = 600; 
+                let currentLevelXP = 0;
+
+                while (level < 999) {
+                    const difficultyFactor = level < 10 ? 1 : 1.2; 
+                    const xpNeededForThisLevel = Math.floor((500 * level + 50 * Math.pow(level, 2)) * difficultyFactor);
+                    
+                    if (finalXP >= currentLevelXP + xpNeededForThisLevel) {
+                        currentLevelXP += xpNeededForThisLevel;
+                        level++;
+                    } else {
+                        xpForNext = xpNeededForThisLevel;
+                        break;
+                    }
+                }
+                
+                const xpInCurrentLevel = finalXP - currentLevelXP;
+                const progressPercent = Math.min(100, (xpInCurrentLevel / xpForNext) * 100);
+
+                return { totalXP: finalXP, rawTotalXP, level, progressPercent, xpInCurrentLevel, xpForNext };
+            }, [history, gymHistory, waterHistory, userSettings]);
+
+            // --- VERIFICADOR DE CONQUISTAS ---
+            useEffect(() => {
+                const unlocked = new Set(userSettings.unlockedAchievements || []);
+                const newUnlocks = [];
+                
+                // Helper para contar dias de algo
+                const countDays = (conditionFn) => {
+                    const dates = new Set([...Object.keys(history), ...Object.keys(gymHistory), ...Object.keys(waterHistory)]);
+                    let count = 0;
+                    dates.forEach(d => { if(conditionFn(d)) count++; });
+                    return count;
+                };
+
+                const totalTasks = Object.values(history).reduce((acc, day) => acc + (day.completed ? day.completed.length : 0), 0);
+                const totalWorkouts = Object.values(gymHistory).reduce((acc, day) => acc + (day.exercises ? 1 : 0), 0);
+                const totalCardioKm = Object.values(gymHistory).reduce((acc, day) => acc + (day.cardioKm || 0), 0);
+                const totalWaterDays = countDays(d => (waterHistory[d] || 0) >= userSettings.waterGoal);
+                
+                ACHIEVEMENT_DATA.forEach(ach => {
+                    if (unlocked.has(ach.id)) return;
+                    
+                    let earned = false;
+                    
+                    if (ach.category === 'level' && gamification.level >= ach.threshold) earned = true;
+                    if (ach.category === 'task' && totalTasks >= ach.threshold) earned = true;
+                    if (ach.category === 'gym' && totalWorkouts >= ach.threshold) earned = true;
+                    if (ach.category === 'water' && totalWaterDays >= ach.threshold) earned = true;
+                    if (ach.category === 'cardio' && totalCardioKm >= ach.threshold) earned = true;
+                    
+                    // Simple streak logic (could be improved to consecutive check)
+                    if (ach.category === 'streak') {
+                        // Using total active days as proxy for now for simplicity in this robust system
+                        const totalActiveDays = Object.keys(history).length; 
+                        if (totalActiveDays >= ach.threshold) earned = true;
+                    }
+
+                    if (earned) {
+                        newUnlocks.push(ach.id);
+                        // Notification Effect
+                        if (window.confetti) window.confetti({ particleCount: 50, spread: 40, colors: ['#fbbf24'] });
+                        alert(`CONQUISTA DESBLOQUEADA: ${ach.title}\n+${ach.xp} XP!`);
+                    }
+                });
+
+                if (newUnlocks.length > 0) {
+                    setUserSettings(prev => ({
+                        ...prev,
+                        unlockedAchievements: [...(prev.unlockedAchievements || []), ...newUnlocks]
+                    }));
+                }
+            }, [gamification.level, history, gymHistory, waterHistory, userSettings.waterGoal]);
+
+
+            // --- FUNÇÃO DE ASCENSÃO (AGORA SEGURA) ---
+            const handleAscension = () => {
+                if (gamification.level < 10) return;
+
+                const bonusMultiplier = (gamification.level - 9) * 0.15; 
+                const newMultiplier = parseFloat((userSettings.xpMultiplier + bonusMultiplier).toFixed(2));
+
+                if (confirm(`ATENÇÃO: Você irá RENASCER!\n\nSeu Nível voltará para 1, mas SEUS DADOS (Rotina, Treinos) SERÃO MANTIDOS.\n\nVocê ganhará um multiplicador de +${bonusMultiplier.toFixed(2)}x para subir mais rápido desta vez.\n\nConfirmar ascensão?`)) {
+                    setUserSettings(prev => ({
+                        ...prev,
+                        xpMultiplier: newMultiplier,
+                        ascensionCount: (prev.ascensionCount || 0) + 1,
+                        xpOffset: gamification.rawTotalXP 
+                    }));
+                    setAscensionModalOpen(false);
+                    
+                    if (window.confetti) {
+                        var duration = 3000;
+                        var end = Date.now() + duration;
+                        (function frame() {
+                            window.confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#fbbf24', '#d97706'] });
+                            window.confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#fbbf24', '#d97706'] });
+                            if (Date.now() < end) requestAnimationFrame(frame);
+                        }());
+                    }
+                    alert(`ASCENSÃO REALIZADA!\nSeu histórico foi mantido.\nSeu nível foi resetado.\nNovo poder: ${newMultiplier}x XP.`);
+                }
+            };
+
+            const waterMl = waterHistory[todayStr] || 0;
+            const todayCardio = gymHistory[todayStr]?.cardioKm || 0;
+            const isComboActive = waterMl >= 3500 && todayCardio >= 3;
+
+            const addWater = (amount) => setWaterHistory(prev => ({ ...prev, [todayStr]: (prev[todayStr] || 0) + amount }));
+            const removeWater = (amount) => setWaterHistory(prev => ({ ...prev, [todayStr]: Math.max(0, (prev[todayStr] || 0) - amount) }));
+
+            // --- FUNÇÕES AUX ---
+            const findSuggestion = () => {
+                const hour = new Date().getHours();
+                let currentPeriod = hour >= 18 || hour < 5 ? 'noite' : hour >= 12 ? 'tarde' : 'manha';
+                const todayCompleted = history[todayStr]?.completed || [];
+                const pending = ROUTINE_DATA.filter(i => i.period === currentPeriod && !todayCompleted.includes(i.id));
+                if (pending.length > 0) setSuggestedItem(pending[0]);
+                else {
+                     const afternoon = ROUTINE_DATA.filter(i => i.period === 'tarde' && !todayCompleted.includes(i.id));
+                     if(currentPeriod === 'manha' && afternoon.length > 0) setSuggestedItem(afternoon[0]);
+                     else alert("Você está em dia com a rotina!");
+                }
+            };
+
+            const exportData = () => {
+                const blob = new Blob([JSON.stringify({ history, gymHistory, waterHistory, candicortStart, userSettings })], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `level_up_backup_${todayStr}.json`;
+                a.click();
+            };
+
+            const importData = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (confirm('Substituir dados atuais?')) {
+                            if(data.history) setHistory(data.history);
+                            if(data.gymHistory) setGymHistory(data.gymHistory);
+                            if(data.waterHistory) setWaterHistory(data.waterHistory);
+                            if(data.userSettings) setUserSettings(data.userSettings);
+                            alert('Sucesso!');
+                        }
+                    } catch(e) { alert('Erro no arquivo.'); }
+                };
+                reader.readAsText(file);
+            };
+
+            const candicortData = useMemo(() => {
+                if (!candicortStart) return { daysLeft: 30, progress: 0 };
+                const diffDays = Math.ceil(Math.abs(new Date() - new Date(candicortStart)) / (1000 * 60 * 60 * 24)); 
+                return { daysLeft: Math.max(0, 30 - diffDays), progress: Math.min(100, (diffDays / 30) * 100), currentDay: diffDays };
+            }, [candicortStart]);
+
+            const getTypeColor = (type) => {
+                switch(type) {
+                    case 'med': return 'bg-rose-500 text-white shadow-rose-200'; 
+                    case 'skincare': return 'bg-purple-500 text-white shadow-purple-200';
+                    case 'meal': return 'bg-emerald-500 text-white shadow-emerald-200'; 
+                    case 'workout': return 'bg-orange-500 text-white shadow-orange-200'; 
+                    default: return 'bg-blue-500 text-white shadow-blue-200';
+                }
+            };
+
+            // --- COMPONENTES MODAIS E VIEWS ---
+            
+            // ... (AscensionModal, WaterModal mantidos idênticos, adicionando AchievementsModal)
+
+            const AchievementsModal = () => {
+                const unlocked = new Set(userSettings.unlockedAchievements || []);
+                const sorted = [...ACHIEVEMENT_DATA].sort((a, b) => {
+                    const aU = unlocked.has(a.id);
+                    const bU = unlocked.has(b.id);
+                    if (aU && !bU) return -1;
+                    if (!aU && bU) return 1;
+                    return 0;
+                });
+
+                return (
+                    <ModalWrapper onClose={() => setAchievementsModalOpen(false)}>
+                        <div className="p-6">
+                            <h3 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-2">Salão de Troféus</h3>
+                            <p className="text-sm text-slate-500 mb-6">Desbloqueado: {unlocked.size} / {ACHIEVEMENT_DATA.length}</p>
+                            
+                            <div className="space-y-3">
+                                {sorted.map(ach => {
+                                    const isUnlocked = unlocked.has(ach.id);
+                                    const isLegendary = ach.category === 'special';
+                                    return (
+                                        <div key={ach.id} className={`p-4 rounded-xl border flex gap-4 items-center ${isUnlocked 
+                                            ? (isLegendary ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800' : 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800') 
+                                            : 'bg-slate-50 border-slate-100 dark:bg-slate-800 dark:border-slate-700 opacity-70 grayscale'}`}>
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isUnlocked ? 'bg-white dark:bg-slate-900 shadow-sm' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                                <Icon name={isLegendary ? 'trophy' : 'medal'} className={`w-6 h-6 ${isUnlocked ? (isLegendary ? 'text-amber-500' : 'text-indigo-500') : 'text-slate-400'}`} />
+                                            </div>
+                                            <div>
+                                                <h4 className={`font-bold text-sm ${isUnlocked ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{ach.title}</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-500">{ach.description}</p>
+                                                {isUnlocked && <span className="text-[10px] font-bold text-emerald-500">+{ach.xp} XP</span>}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    </ModalWrapper>
+                )
+            }
+
+            const AscensionModal = () => {
+                const canAscend = gamification.level >= 10;
+                const nextBonus = Math.max(0, (gamification.level - 9) * 0.15).toFixed(2);
+                
+                return (
+                    <ModalWrapper onClose={() => setAscensionModalOpen(false)}>
+                        <div className="p-8 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gold-gradient"></div>
+                            
+                            <div className="text-center mb-8">
+                                <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4 shadow-xl ${canAscend ? 'bg-gold-gradient text-white animate-pulse-slow' : 'bg-slate-200 text-slate-400'}`}>
+                                    <Icon name="crown" className="w-10 h-10" />
+                                </div>
+                                <h3 className="text-3xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tight">Ascensão</h3>
+                                <p className="text-slate-500 text-sm mt-2 font-medium">O Ciclo do Renascimento</p>
+                            </div>
+
+                            <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl mb-6 border border-slate-100 dark:border-slate-700">
+                                <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                                    <span className="text-slate-500 dark:text-slate-400 font-bold text-sm">Nível Atual</span>
+                                    <span className={`text-2xl font-black ${canAscend ? 'text-emerald-500' : 'text-slate-700 dark:text-slate-300'}`}>{gamification.level}</span>
+                                </div>
+                                <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                                    <span className="text-slate-500 dark:text-slate-400 font-bold text-sm">Multiplicador Atual</span>
+                                    <span className="text-2xl font-black text-indigo-500">{userSettings.xpMultiplier}x</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-500 dark:text-slate-400 font-bold text-sm">Bônus ao Ascender</span>
+                                    <span className="text-2xl font-black text-amber-500">+{nextBonus}x</span>
+                                </div>
+                            </div>
+
+                            {!canAscend ? (
+                                <div className="text-center p-4 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-500 text-xs font-bold uppercase tracking-widest">
+                                    Requer Nível 10 para desbloquear
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl mb-6">
+                                        <p className="text-emerald-700 text-xs font-bold text-center">
+                                            <Icon name="check-circle" className="w-4 h-4 inline mr-1 mb-0.5" />
+                                            SEGURO: Seu histórico de rotina NÃO será apagado. Apenas seu nível será resetado.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={handleAscension}
+                                        className="w-full py-4 rounded-xl font-bold text-white shadow-lg shadow-amber-500/30 bg-gold-gradient hover:opacity-90 transition-all active:scale-95 text-lg uppercase tracking-wider flex items-center justify-center gap-2"
+                                    >
+                                        <Icon name="sparkles" className="w-5 h-5" /> Ascender Agora
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </ModalWrapper>
+                )
+            };
+
+            // --- VIEW DE SIDEBAR ---
+            const Sidebar = () => (
+                <aside className="hidden md:flex flex-col w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-screen sticky top-0 p-6 z-30 overflow-y-auto">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-500/30">L</div>
+                        <div>
+                            <h1 className="font-display font-bold text-xl text-slate-900 dark:text-white">Level Up</h1>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">RPG Life Manager</p>
+                        </div>
+                    </div>
+
+                    <div className="mb-6 p-5 rounded-3xl bg-slate-900 text-white shadow-xl shadow-slate-900/20 relative overflow-hidden group">
+                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity"><Icon name="shield" className="w-24 h-24" /></div>
+                         <div className="relative z-10">
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-3xl font-display font-black">{gamification.level}</span>
+                                <span className="text-xs font-bold text-indigo-300 mb-1.5 uppercase tracking-wider">Nível Atual</span>
+                            </div>
+                             <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden mb-2">
+                                 <div className="h-full bg-indigo-400 rounded-full transition-all duration-700" style={{width: `${gamification.progressPercent}%`}}></div>
+                             </div>
+                             <div className="flex justify-between text-[10px] text-slate-300 font-bold">
+                                <span>{gamification.xpInCurrentLevel} XP</span>
+                                <span>{gamification.xpForNext} XP</span>
+                             </div>
+                             {userSettings.ascensionCount > 0 && (
+                                 <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-widest">
+                                     <Icon name="crown" className="w-3 h-3" /> {userSettings.ascensionCount} Ascensões
+                                 </div>
+                             )}
+                         </div>
+                    </div>
+
+                    <nav className="space-y-2 mb-8">
+                        {[ { id: 'routine', icon: 'list-checks', label: 'Rotina' }, { id: 'gym', icon: 'dumbbell', label: 'Academia' } ].map(item => (
+                            <button key={item.id} onClick={() => setActiveTab(item.id)}
+                                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-medium ${activeTab === item.id ? 'bg-slate-100 text-slate-900 dark:bg-white dark:text-black' : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'}`}>
+                                <Icon name={item.icon} className="w-5 h-5" /> {item.label}
+                            </button>
+                        ))}
+                        
+                        <button onClick={() => setAchievementsModalOpen(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-medium text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+                             <Icon name="trophy" className="w-5 h-5" /> Conquistas <span className="ml-auto bg-slate-200 dark:bg-slate-700 text-[10px] px-2 py-0.5 rounded-full">{userSettings.unlockedAchievements?.length || 0}/80</span>
+                        </button>
+
+                        <button onClick={() => setAscensionModalOpen(true)} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 group relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent translate-x-[-100%] group-hover:animate-[shimmer_1s_infinite]"></div>
+                            <Icon name="crown" className="w-5 h-5" /> Ascensão
+                            {gamification.level >= 10 && <span className="ml-auto flex h-2 w-2 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>}
+                        </button>
+                    </nav>
+
+                    <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
+                         <div className="flex items-center justify-between mb-6 px-2">
+                            <span className="text-xs font-bold text-slate-400 uppercase">Tema</span>
+                            <button onClick={() => setDarkMode(!darkMode)} className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ${darkMode ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+                                <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${darkMode ? 'translate-x-5' : ''}`}></div>
+                            </button>
+                         </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={exportData} className="py-3 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 transition-colors">Backup</button>
+                            <button onClick={() => fileInputRef.current.click()} className="py-3 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 transition-colors">Restaurar</button>
+                        </div>
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={importData} accept=".json" className="hidden" />
+                </aside>
+            );
+
+            // --- HEADER COMPONENT ---
+            const BentoHeader = () => {
+                const currentCompleted = history[todayStr]?.completed || [];
+                const progress = (currentCompleted.length / ROUTINE_DATA.length) * 100;
+                
+                return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-enter">
+                        <div className="col-span-2 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2rem] p-6 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
+                            {isComboActive && (
+                                <div className="absolute top-0 right-0 p-3">
+                                    <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                                        <Icon name="flame" className="w-3 h-3" /> COMBO 1.5x ATIVO
+                                    </span>
+                                </div>
+                            )}
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start">
+                                    <h3 className="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-1">Diário</h3>
+                                    {userSettings.xpMultiplier > 1 && <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold">XP x{userSettings.xpMultiplier}</span>}
+                                </div>
+                                <div className="flex items-end gap-2">
+                                    <span className="text-5xl font-display font-black tracking-tight">{Math.round(progress)}%</span>
+                                </div>
+                                <div className="mt-6 bg-white/20 rounded-full h-2.5 w-full overflow-hidden">
+                                    <div className="bg-white h-full rounded-full transition-all duration-1000 ease-out" style={{width: `${progress}%`}}></div>
+                                </div>
+                            </div>
+                            <div className="absolute right-[-20px] bottom-[-20px] opacity-10 transform rotate-12 group-hover:scale-110 transition-transform duration-500">
+                                <Icon name="check-circle" className="w-40 h-40" />
+                            </div>
+                        </div>
+
+                        {/* WIDGET AGUA */}
+                        <div className={`rounded-[2rem] p-5 border shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden ${isComboActive ? 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`} onClick={() => setWaterModalOpen(true)}>
+                             <div className="absolute bottom-0 left-0 w-full bg-sky-100 dark:bg-sky-900/30 transition-all duration-1000" style={{height: `${Math.min(100, (waterMl/userSettings.waterGoal)*100)}%`}}></div>
+                             <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="p-2.5 bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 rounded-xl group-hover:scale-110 transition-transform">
+                                        <Icon name="droplets" className="w-5 h-5" />
+                                    </div>
+                                    <div className="w-6 h-6 rounded-full bg-sky-50 dark:bg-sky-900/50 flex items-center justify-center text-sky-600 text-sm font-bold">+</div>
+                                </div>
+                                <div>
+                                    <h4 className="text-2xl font-display font-bold text-slate-900 dark:text-white">{waterMl}<span className="text-slate-300 text-sm">ml</span></h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Meta: {userSettings.waterGoal}ml</p>
+                                    {waterMl >= 3500 && !isComboActive && <p className="text-[10px] text-pink-500 font-bold mt-1">Falta 3km Cardio!</p>}
+                                </div>
+                             </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 border border-slate-100 dark:border-slate-700 shadow-sm">
+                             <div className="flex justify-between items-start mb-4">
+                                <div className="p-2.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl">
+                                    <Icon name="alert-circle" className="w-5 h-5" />
+                                </div>
+                             </div>
+                             <div>
+                                <h4 className="text-2xl font-display font-bold text-slate-900 dark:text-white">{candicortData.currentDay}<span className="text-slate-300 text-lg">/30</span></h4>
+                                <div className="w-full bg-orange-100 h-1.5 rounded-full mt-2">
+                                    <div className="bg-orange-500 h-1.5 rounded-full" style={{width: `${candicortData.progress}%`}}></div>
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const WaterModal = () => {
+                const [customAmount, setCustomAmount] = useState('');
+                return (
+                    <ModalWrapper onClose={() => setWaterModalOpen(false)}>
+                        <div className="p-8">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Hidratação</h3>
+                                <button onClick={() => {
+                                    const newGoal = prompt("Nova meta diária (ml):", userSettings.waterGoal);
+                                    if(newGoal) setUserSettings(prev => ({...prev, waterGoal: parseInt(newGoal)}));
+                                }} className="text-xs font-bold text-sky-500 bg-sky-50 dark:bg-sky-900/30 px-3 py-1 rounded-full uppercase">Meta: {userSettings.waterGoal}ml</button>
+                            </div>
+                            
+                            <div className="flex justify-center mb-8">
+                                <div className="w-40 h-40 rounded-full border-4 border-sky-100 dark:border-sky-900 flex items-center justify-center relative overflow-hidden">
+                                    <div className="absolute bottom-0 left-0 w-full bg-sky-400/20 transition-all duration-700" style={{height: `${Math.min(100, (waterMl/userSettings.waterGoal)*100)}%`}}></div>
+                                    <div className="text-center relative z-10">
+                                        <span className="block text-3xl font-black text-sky-600 dark:text-sky-400">{waterMl}</span>
+                                        <span className="text-xs text-sky-400 uppercase font-bold">ml hoje</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {waterMl >= 3500 && (
+                                <div className="mb-4 text-center p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-emerald-600 text-xs font-bold">
+                                    Metade do Combo Completo! (3.5L atingidos)
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-3 mb-2">
+                                <button onClick={() => { addWater(250); setWaterModalOpen(false); }} className="p-4 bg-sky-50 dark:bg-sky-900/20 rounded-2xl text-sky-600 font-bold hover:bg-sky-100 transition-colors">+ 250ml</button>
+                                <button onClick={() => { addWater(500); setWaterModalOpen(false); }} className="p-4 bg-sky-50 dark:bg-sky-900/20 rounded-2xl text-sky-600 font-bold hover:bg-sky-100 transition-colors">+ 500ml</button>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                <button onClick={() => { removeWater(250); setWaterModalOpen(false); }} className="p-2 bg-rose-50 dark:bg-rose-900/10 rounded-xl text-rose-500 font-bold hover:bg-rose-100 text-xs transition-colors">Corrigir -250ml</button>
+                                <button onClick={() => { removeWater(500); setWaterModalOpen(false); }} className="p-2 bg-rose-50 dark:bg-rose-900/10 rounded-xl text-rose-500 font-bold hover:bg-rose-100 text-xs transition-colors">Corrigir -500ml</button>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <input type="number" placeholder="Outro valor (ml)" className="flex-1 bg-slate-50 dark:bg-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-sky-500 dark:text-white font-bold" value={customAmount} onChange={e => setCustomAmount(e.target.value)} />
+                                <button onClick={() => { if(customAmount) { addWater(parseInt(customAmount)); setWaterModalOpen(false); } }} className="px-6 bg-sky-600 text-white rounded-xl font-bold">OK</button>
+                            </div>
+                        </div>
+                    </ModalWrapper>
+                )
+            };
+
+            const RoutineView = () => {
+                const periods = { manha: ROUTINE_DATA.filter(i => i.period === 'manha'), tarde: ROUTINE_DATA.filter(i => i.period === 'tarde'), noite: ROUTINE_DATA.filter(i => i.period === 'noite') };
+                const currentCompleted = history[todayStr]?.completed || [];
+
+                return (
+                    <div className="pb-24">
+                        <BentoHeader />
+                        {isComboActive && (
+                             <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg animate-enter flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg"><Icon name="flame" className="w-6 h-6" /></div>
+                                    <div>
+                                        <h3 className="font-bold text-lg leading-tight">COMBO INSANO ATIVO!</h3>
+                                        <p className="text-xs text-white/80">Multiplicador 1.5x em TUDO hoje.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-6">
+                            {Object.entries(periods).map(([key, items], idx) => (
+                                <section key={key} className="glass-card rounded-[2rem] p-6 animate-enter" style={{animationDelay: `${idx * 100}ms`}}>
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className={`p-2 rounded-lg ${key === 'manha' ? 'bg-amber-100 text-amber-600' : key === 'tarde' ? 'bg-sky-100 text-sky-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                            <Icon name={key === 'manha' ? 'sun' : key === 'tarde' ? 'cloud-sun' : 'moon'} className="w-5 h-5" />
+                                        </div>
+                                        <h3 className="text-lg font-display font-bold text-slate-900 dark:text-white capitalize">{key === 'manha' ? 'Manhã' : key === 'tarde' ? 'Tarde' : 'Noite'}</h3>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {items.map(item => {
+                                            const isChecked = currentCompleted.includes(item.id);
+                                            // Apply multiplier visually only if active for day
+                                            let xpValue = Math.floor(item.xp * userSettings.xpMultiplier);
+                                            if(isComboActive) xpValue = Math.floor(xpValue * 1.5);
+
+                                            return (
+                                                <div key={item.id} className={`group flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 border ${isChecked ? 'bg-slate-50 dark:bg-slate-800/40 border-transparent opacity-60' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-500/5'}`}>
+                                                    <label className="checkbox-bounce cursor-pointer relative">
+                                                        <input type="checkbox" className="sr-only" checked={isChecked} onChange={() => toggleRoutineItem(item.id)} />
+                                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-transparent hover:bg-indigo-100'}`}>
+                                                            <Icon name="check" className="w-4 h-4" />
+                                                        </div>
+                                                    </label>
+                                                    <div className="flex-1 cursor-pointer" onClick={() => !isChecked && toggleRoutineItem(item.id)}>
+                                                        <p className={`font-semibold text-sm ${isChecked ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>{item.title}</p>
+                                                        {!isChecked && <div className="flex gap-2 mt-1">
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${getTypeColor(item.type).split(' ')[0]} bg-opacity-10 text-opacity-100 ${getTypeColor(item.type).replace('bg-', 'text-')}`}>{item.type}</span>
+                                                            <span className={`text-[10px] font-bold px-1.5 rounded flex items-center ${isComboActive ? 'text-purple-600 bg-purple-50' : 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'}`}>+{xpValue} XP</span>
+                                                        </div>}
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }} className="text-slate-300 hover:text-indigo-500 p-2"><Icon name="info" className="w-5 h-5" /></button>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            const GymView = () => {
+                const dayData = gymHistory[selectedDate] || {};
+                const currentExercises = dayData.exercises || [];
+                const currentCardio = dayData.cardioKm || 0;
+
+                const activeMuscles = [...new Set(currentExercises.map(e => e.muscleId))];
+                const weekDays = [];
+                const current = new Date();
+                const startOfWeek = current.getDate() - current.getDay(); 
+                const start = new Date(current.setDate(startOfWeek));
+                for(let i=0; i<7; i++) { const d = new Date(start); d.setDate(start.getDate() + i); weekDays.push(d); }
+
+                return (
+                    <div className="pb-24 animate-enter">
+                        <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar mb-6">
+                            {weekDays.map(d => {
+                                const dStr = d.toISOString().split('T')[0];
+                                const isSelected = dStr === selectedDate;
+                                return (
+                                    <button key={dStr} onClick={() => setSelectedDate(dStr)}
+                                        className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-20 rounded-2xl transition-all duration-300 ${isSelected ? 'bg-slate-900 dark:bg-white text-white dark:text-black scale-105 shadow-xl shadow-slate-900/20' : 'bg-white dark:bg-slate-800 text-slate-400'}`}>
+                                        <span className="text-[10px] font-bold uppercase">{d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)}</span>
+                                        <span className="text-xl font-display font-bold mt-1">{d.getDate()}</span>
+                                        {gymHistory[dStr]?.exercises?.length > 0 && <div className={`w-1 h-1 rounded-full mt-2 ${isSelected ? 'bg-white' : 'bg-green-500'}`}></div>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="grid lg:grid-cols-12 gap-8">
+                            <div className="lg:col-span-5 glass-card rounded-[2.5rem] p-6 text-center relative overflow-hidden">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Mapa Anatômico</h3>
+                                <BodyMap highlightedMuscles={activeMuscles} onMuscleClick={(mId) => setModalMuscle(mId)} />
+                                <p className="text-xs text-slate-400 mt-2">Toque para adicionar exercício</p>
+                            </div>
+
+                            <div className="lg:col-span-7 space-y-6">
+                                {/* CARDIO SECTION */}
+                                <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-lg shadow-rose-500/20">
+                                    <div className="absolute right-[-20px] bottom-[-40px] opacity-20 transform -rotate-12"><Icon name="activity" className="w-40 h-40" /></div>
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="font-display font-bold text-xl flex items-center gap-2"><Icon name="activity" className="w-5 h-5" /> Cardio</h3>
+                                                <p className="text-pink-100 text-xs mt-1">Combine 3km + 3.5L Água = 1.5x XP</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-3xl font-black">{currentCardio}</span>
+                                                <span className="text-sm font-medium opacity-80">km</span>
+                                            </div>
+                                        </div>
+                                        <input 
+                                            type="range" min="0" max="10" step="0.5" 
+                                            value={currentCardio} 
+                                            onChange={(e) => updateCardio(e.target.value)}
+                                            className="w-full h-2 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
+                                        />
+                                        <div className="flex justify-between text-[10px] font-bold mt-2 opacity-80">
+                                            <span>0km</span>
+                                            <span>5km</span>
+                                            <span>10km+</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="glass-card rounded-[2rem] p-6 min-h-[300px]">
+                                    <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white mb-6 flex items-center gap-2"><Icon name="dumbbell" className="w-5 h-5 text-indigo-500" /> Treino do Dia</h3>
+                                    {currentExercises.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-12 text-slate-300">
+                                            <Icon name="clipboard-list" className="w-12 h-12 mb-3 opacity-50" />
+                                            <p className="text-sm">Nenhum treino registrado.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {currentExercises.map((ex) => (
+                                                <div key={ex.id} className="flex items-center bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl group hover:scale-[1.01] transition-transform">
+                                                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm shadow-sm mr-4">
+                                                        {ex.series}x
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-bold text-slate-800 dark:text-white text-sm">{ex.exercise}</h4>
+                                                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                            <span className="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">{MUSCLE_GROUPS.find(m => m.id === ex.muscleId)?.label}</span>
+                                                            <span>{ex.weight}kg • {ex.reps} reps</span>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => removeExercise(ex.id)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors"><Icon name="trash-2" className="w-4 h-4" /></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                                    {WORKOUT_PRESETS.map(preset => (
+                                        <button key={preset.name} onClick={() => applyPreset(preset, selectedDate)}
+                                            className="whitespace-nowrap px-5 py-3 bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-xl border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 transition-colors shadow-sm">
+                                            {preset.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const NewExerciseModal = () => {
+                const [form, setForm] = useState({ exercise: '', weight: '', series: '3', reps: '10' });
+                return (
+                    <ModalWrapper onClose={() => setModalMuscle(null)}>
+                        <div className="p-8">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Novo Exercício</h3>
+                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">{MUSCLE_GROUPS.find(m => m.id === modalMuscle)?.label}</span>
+                            </div>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                addExercise({ id: Date.now(), muscleId: modalMuscle, ...form, exercise: form.exercise || 'Exercício', weight: form.weight || 0 });
+                                setModalMuscle(null);
+                            }} className="space-y-5">
+                                <div><label className="block text-xs font-bold text-slate-400 uppercase mb-2">Nome</label><input autoFocus type="text" placeholder="Ex: Supino" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-lg font-medium outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" value={form.exercise} onChange={e => setForm({...form, exercise: e.target.value})} /></div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {['weight', 'series', 'reps'].map(f => (
+                                        <div key={f}><label className="block text-xs font-bold text-slate-400 uppercase mb-2">{f === 'weight' ? 'Kg' : f === 'series' ? 'Sets' : 'Reps'}</label><input type="number" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 text-center font-bold outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" value={form[f]} onChange={e => setForm({...form, [f]: e.target.value})} /></div>
+                                    ))}
+                                </div>
+                                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30 transition-transform active:scale-95">Salvar Treino</button>
+                            </form>
+                        </div>
+                    </ModalWrapper>
+                );
+            };
+
+            return (
+                <div className="flex min-h-screen">
+                    <Sidebar />
+                    <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+                        <div className="md:hidden flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black">L</div>
+                                <span className="font-display font-bold text-lg dark:text-white">Level Up</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => setDarkMode(!darkMode)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><Icon name={darkMode ? 'sun' : 'moon'} className="w-5 h-5 text-slate-600 dark:text-slate-300" /></button>
+                            </div>
+                        </div>
+
+                        {activeTab === 'routine' ? <RoutineView /> : <GymView />}
+
+                        <button onClick={findSuggestion} className="fixed bottom-24 right-6 md:bottom-12 md:right-12 w-14 h-14 bg-slate-900 dark:bg-white dark:text-black text-white rounded-full shadow-2xl z-40 flex items-center justify-center animate-float hover:scale-110 transition-transform">
+                            <Icon name="zap" className="w-6 h-6 fill-current" />
+                        </button>
+                    </main>
+
+                    <div className="md:hidden fixed bottom-6 left-4 right-4 z-50">
+                        <div className="glass dark:glass bg-white/90 dark:bg-slate-900/90 rounded-2xl p-2 flex justify-between items-center shadow-2xl shadow-black/20 ring-1 ring-black/5">
+                            {['routine', 'gym'].map(t => (
+                                <button key={t} onClick={() => setActiveTab(t)} className={`flex-1 flex flex-col items-center py-2 rounded-xl transition-all ${activeTab === t ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'text-slate-400'}`}>
+                                    <Icon name={t === 'routine' ? 'list-checks' : 'dumbbell'} className="w-5 h-5 mb-0.5" />
+                                    <span className="text-[10px] font-bold uppercase">{t === 'routine' ? 'Rotina' : 'Treino'}</span>
+                                </button>
+                            ))}
+                            <button onClick={() => setAchievementsModalOpen(true)} className="flex-1 flex flex-col items-center py-2 rounded-xl text-slate-400">
+                                <Icon name="trophy" className="w-5 h-5 mb-0.5" />
+                                <span className="text-[10px] font-bold uppercase">Conq.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {modalMuscle && <NewExerciseModal />}
+                    {waterModalOpen && <WaterModal />}
+                    {ascensionModalOpen && <AscensionModal />}
+                    {achievementsModalOpen && <AchievementsModal />}
+                    
+                    {selectedItem && (
+                        <ModalWrapper onClose={() => setSelectedItem(null)}>
+                            <div className="p-8">
+                                <div className="flex items-center gap-5 mb-6">
+                                    <div className={`p-4 rounded-2xl shadow-lg ${getTypeColor(selectedItem.type)}`}>
+                                        <Icon name="info" className="w-8 h-8" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-display font-black text-slate-900 dark:text-white leading-tight">{selectedItem.title}</h3>
+                                        <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">{selectedItem.time}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                                        <p className="text-slate-700 dark:text-slate-300">{selectedItem.description}</p>
+                                    </div>
+                                    <div className="flex gap-3 items-start p-2">
+                                        <Icon name="alert-triangle" className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                                        <p className="text-sm text-slate-500 dark:text-slate-400"><strong className="text-rose-500 uppercase text-xs">Risco:</strong> {selectedItem.consequence}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setSelectedItem(null)} className="w-full mt-8 bg-slate-900 dark:bg-white dark:text-black text-white font-bold py-4 rounded-xl">Entendido</button>
+                            </div>
+                        </ModalWrapper>
+                    )}
+                     {suggestedItem && (
+                        <ModalWrapper onClose={() => setSuggestedItem(null)}>
+                            <div className="p-8 text-center">
+                                <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                                    <Icon name="lightbulb" className="w-10 h-10" />
+                                </div>
+                                <h3 className="text-2xl font-display font-bold mb-2 dark:text-white">{suggestedItem.title}</h3>
+                                <p className="text-slate-500 mb-8">{suggestedItem.description}</p>
+                                <button onClick={() => { toggleRoutineItem(suggestedItem.id); setSuggestedItem(null); }} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30">Marcar como Feito (+{Math.floor(suggestedItem.xp * userSettings.xpMultiplier)} XP)</button>
+                            </div>
+                        </ModalWrapper>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
